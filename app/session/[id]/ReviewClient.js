@@ -460,6 +460,114 @@ export default function ReviewClient({ initialData }) {
     return () => clearTimeout(t);
   }, [globalNote, handleSaveGlobalNote]);
 
+  // ── Supabase Realtime 구독 ──
+  useEffect(() => {
+    const channel = supabase
+      .channel(`session-${session.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "highlights",
+          filter: `session_id=eq.${session.id}`,
+        },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            setHighlights((p) =>
+              p.some((h) => h.id === payload.new.id) ? p : [...p, payload.new]
+            );
+          } else if (payload.eventType === "UPDATE") {
+            setHighlights((p) =>
+              p.map((h) => (h.id === payload.new.id ? payload.new : h))
+            );
+          } else if (payload.eventType === "DELETE") {
+            setHighlights((p) => p.filter((h) => h.id !== payload.old.id));
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "tags",
+          filter: `session_id=eq.${session.id}`,
+        },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            setTags((p) =>
+              p.some((t) => t.id === payload.new.id) ? p : [...p, payload.new]
+            );
+          } else if (payload.eventType === "UPDATE") {
+            setTags((p) =>
+              p.map((t) => (t.id === payload.new.id ? payload.new : t))
+            );
+          } else if (payload.eventType === "DELETE") {
+            setTags((p) => p.filter((t) => t.id !== payload.old.id));
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "comments",
+          filter: `session_id=eq.${session.id}`,
+        },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            setComments((p) =>
+              p.some((c) => c.id === payload.new.id) ? p : [...p, payload.new]
+            );
+          } else if (payload.eventType === "UPDATE") {
+            setComments((p) =>
+              p.map((c) => (c.id === payload.new.id ? payload.new : c))
+            );
+          } else if (payload.eventType === "DELETE") {
+            setComments((p) => p.filter((c) => c.id !== payload.old.id));
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "global_notes",
+          filter: `session_id=eq.${session.id}`,
+        },
+        (payload) => {
+          if (
+            payload.eventType === "INSERT" ||
+            payload.eventType === "UPDATE"
+          ) {
+            const note = payload.new;
+            // 다른 리뷰어의 전체메모만 반영 (본인 것은 로컬 state로 관리)
+            if (note.reviewer_name !== reviewerName) {
+              // globalNotes는 initialData에만 있으므로 별도 처리 불필요
+              // 요약 패널에서 다른 리뷰어 메모는 initialData.globalNotes로 보여주므로
+              // 실시간 반영을 위해 initialData를 직접 수정
+              const idx = initialData.globalNotes.findIndex(
+                (n) => n.reviewer_name === note.reviewer_name
+              );
+              if (idx >= 0) {
+                initialData.globalNotes[idx] = note;
+              } else {
+                initialData.globalNotes.push(note);
+              }
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session.id, reviewerName]);
+
   const totalComments = comments.length;
   const totalHighlights = highlights.length;
   const totalTagged = new Set(tags.map((t) => t.utterance_seq)).size;
