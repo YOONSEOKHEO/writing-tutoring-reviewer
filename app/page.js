@@ -40,9 +40,17 @@ export default async function HomePage() {
         </div>
 
         {/* Session list */}
-        <h2 className="text-sm font-bold text-slate-500 mb-4 uppercase tracking-wider">
-          튜터링 세션 목록
-        </h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-sm font-bold text-slate-500 uppercase tracking-wider">
+            튜터링 세션 목록
+          </h2>
+          <Link
+            href="/upload"
+            className="inline-flex items-center gap-1.5 bg-blue-600 text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            + 새 세션 업로드
+          </Link>
+        </div>
 
         {sessions.length === 0 ? (
           <div className="bg-white rounded-2xl p-12 text-center text-slate-400">
